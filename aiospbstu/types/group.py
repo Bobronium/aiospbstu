@@ -11,6 +11,8 @@ __all__ = ['Group', 'GroupType', 'GroupKind', 'GroupLevel']
 
 
 class GroupType(StrEnum):
+    __return_missing__ = True
+
     common = 'common'
     evening = 'evening'
     distance = 'distance'

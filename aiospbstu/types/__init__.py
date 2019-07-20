@@ -10,6 +10,7 @@ from .method import Method
 from .schedule import Schedule
 from .teacher import Teacher
 from .week import Week
+from .type_obj import LessonTypeName, TypeObj
 
 __all__ = [
     'AnyDate',
@@ -21,7 +22,9 @@ __all__ = [
     'Method',
     'GroupLevel',
     'Lesson',
+    'LessonTypeName',
     'Schedule',
     'Teacher',
+    'TypeObj',
     'Week'
 ]

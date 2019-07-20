@@ -7,6 +7,8 @@ __all__ = ['TypeObj', 'LessonTypeName']
 
 
 class LessonTypeName(StrEnum):
+    __return_missing__ = True
+
     practical_lesson = 'Практика'
     laboratory_work = 'Лабораторная'
     lecture = 'Лекция'
