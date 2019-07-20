@@ -28,7 +28,7 @@ loop.run_until_complete(main())
 
 # Installation
 ```bash
-$ pip install "https://github.com/MrMrRozbat/aiospbstu/archive/master.zip"
+$ pip install "https://github.com/MrMrRobat/aiospbstu/archive/master.zip"
 ```
 
 

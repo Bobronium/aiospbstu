@@ -1,0 +1,14 @@
+[tool]
+[tool.poetry]
+name = "aiospbstu"
+version = "1.0.0"
+description = "Asynchronous API wrapper for PolyTech Schedule API"
+authors = ["MrMrRobat <appkiller16@gmail.com>"]
+url = "https://github.com/MrMrRobat/aiospbstu"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+aiohttp = ">=3.5.4"
+certifi = ">=2019.3.9"
+pydantic = "==0.30"
+python = "==3.7"
