@@ -1,25 +1,78 @@
 import abc
 import datetime
-import functools
-from typing import Optional, Union, TypeVar
+from typing import Optional, Union, TypeVar, TYPE_CHECKING
 
+import pydantic
 from pydantic import BaseModel
 
-__all__ = ['BaseScheduleObject', 'StrScheduleObject', 'ObjectWithSchedule']
+__all__ = [
+    'AnyDate',
+    'BaseScheduleObject',
+    'StrScheduleObject',
+    'ObjectWithSchedule',
+    'cached_property',
+    'cached_class_property'
+]
 
 UniScheduleModel = TypeVar('UniScheduleModel', bound='BaseScheduleObject')
+AnyDate = Union[str, datetime.datetime, datetime.date]
+
+if TYPE_CHECKING:
+    from .. import PolyScheduleAPI
+
+
+class _Missing:
+    pass
+
+
+class _CachedProperty:
+    __slots__ = 'getter', '_cached'
+
+    def __init__(self, getter):
+        self.getter = getter
+        self._cached = {}
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+        instance_id = id(instance)
+        cached = self._cached.get(instance_id, _Missing)
+        if cached is _Missing:
+            cached = self._cached[instance_id] = self.getter(instance)
+        return cached
+
+
+class _CachedClassProperty:
+    __slots__ = 'getter', '_cached'
+
+    def __init__(self, getter):
+        self.getter = getter
+        self._cached = None
+
+    def __get__(self, instance, owner):
+        if self._cached is None:
+            self._cached = self.getter(owner)
+        return self._cached
+
+
+cached_property = _CachedProperty
+cached_class_property = _CachedClassProperty
+
+
+def patch_pydantic():
+    # We need it until this gets released: https://github.com/samuelcolvin/pydantic/pull/679
+    pydantic.main.TYPE_BLACKLIST = pydantic.main.TYPE_BLACKLIST + (cached_class_property, cached_property)
+
+
+patch_pydantic()
 
 
 class BaseScheduleObject(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    @property
-    @functools.lru_cache()
-    def api(self):
-        """
-        :rtype: aiospbstu.api.PolyScheduleAPI
-        """
+    @cached_class_property
+    def api(self) -> 'PolyScheduleAPI':
         from .. import PolyScheduleAPI
         api = PolyScheduleAPI.get_current()
         if api is None:
@@ -28,51 +81,20 @@ class BaseScheduleObject(BaseModel):
                                "'PolyScheduleAPI.set_current(api_instance)'")
         return api
 
-    @property
+    @cached_class_property
     def skip_exceptions(self):
         return self.api.skip_exceptions
 
-    @property
-    @functools.lru_cache()
-    def identity(self):
-        obj = self.__class__.__name__.lower()
-        if hasattr(self, f'{obj}_id'):
-            return getattr(self, f'{obj}_id')
-
-    def __hash__(self):
-        def _hash(obj):
-            buf = 0
-            if isinstance(obj, list):
-                for item in obj:
-                    buf += _hash(item)
-            elif isinstance(obj, dict):
-                for dict_key, dict_value in obj.items():
-                    buf += hash(dict_key) + _hash(dict_value)
-            else:
-                try:
-                    buf += hash(obj)
-                except TypeError:  # Skip unhashable objects
-                    pass
-            return buf
-
-        result = 0
-        for key, value in sorted(self.fields.items()):
-            result += hash(key) + _hash(value)
-
-        return result
-
 
 class StrScheduleObject(BaseScheduleObject):
+    _str = 'name'
 
     def __str__(self):
-        if hasattr(self, 'full_name'):
-            return self.full_name
-        if hasattr(self, 'subject_short'):
-            return self.subject
-        return self.name or super().__str__()
+        return getattr(self, self._str, super().__str__())
 
 
 class ObjectWithSchedule(BaseScheduleObject, abc.ABC):
 
-    async def get_schedule(self, date: Optional[Union[datetime.datetime, datetime.date]] = None):
-        pass
+    @abc.abstractmethod
+    async def get_schedule(self, date: Optional[AnyDate] = None):
+        ...

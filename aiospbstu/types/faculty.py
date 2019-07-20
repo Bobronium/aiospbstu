@@ -1,14 +1,22 @@
+from typing import Optional, List, TYPE_CHECKING
+
 from pydantic import Schema
 
 from .base import BaseScheduleObject
 
 __all__ = ['Faculty']
 
+if TYPE_CHECKING:
+    from aiospbstu.types import Group
+
 
 class Faculty(BaseScheduleObject):
-    faculty_id: int = Schema(None, alias='id')
+    id: int = Schema(None, alias='id')
     name: str
     abbr: str
+    groups: Optional[List['Group']]
 
     async def get_groups(self):
-        return await self.api.get_faculty_groups(self.faculty_id)
+        if not self.groups:
+            self.groups = await self.api.get_faculty_groups(self.id)
+        return self.groups

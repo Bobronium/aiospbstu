@@ -1,16 +1,16 @@
-import datetime
-from enum import Enum, IntEnum
-from typing import Optional, Union
+from enum import IntEnum
+from typing import Optional, List
 
 from pydantic import Schema
 
-from .base import ObjectWithSchedule
+from .base import ObjectWithSchedule, AnyDate
 from .faculty import Faculty
+from ..utils.strenum import StrEnum
 
 __all__ = ['Group', 'GroupType', 'GroupKind', 'GroupLevel']
 
 
-class GroupType(str, Enum):
+class GroupType(StrEnum):
     common = 'common'
     evening = 'evening'
     distance = 'distance'
@@ -34,7 +34,7 @@ class GroupLevel(IntEnum):
 
 
 class Group(ObjectWithSchedule):
-    group_id: int = Schema(None, alias='id')
+    id: int
     name: str
     level: GroupLevel
     group_type: str = Schema(None, alias='type')
@@ -42,5 +42,9 @@ class Group(ObjectWithSchedule):
     spec: str
     faculty: Faculty
 
-    async def get_schedule(self, date: Optional[Union[datetime.datetime, datetime.date]] = None):
-        return await self.api.get_group_schedule(self.group_id, date)
+    async def get_schedule(self, date: Optional[AnyDate] = None):
+        return await self.api.get_group_schedule(self.id, date)
+
+    @classmethod
+    async def search(cls, name: str) -> List['Group']:
+        return await cls.api.search_group(teacher_name=name)

@@ -38,7 +38,7 @@ class Day(BaseScheduleObject):
         return weekday - 1
 
     @validator('lessons', pre=True, whole=True)
-    def _filter_lessons_duplicates(cls, lessons):
+    def _filter_lessons_duplicates(cls, lessons: list):
         filtered_lessons = []
         is_duplicate = False
 

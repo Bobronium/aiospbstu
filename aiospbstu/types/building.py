@@ -1,24 +1,23 @@
-import datetime
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from pydantic import Schema
 
-from .base import StrScheduleObject, ObjectWithSchedule
+from .base import StrScheduleObject, ObjectWithSchedule, AnyDate
 
 __all__ = ['Building']
 
 
 class Building(StrScheduleObject):
-    building_id: int = Schema(None, alias='id')
+    id: int
     name: str
     abbr: str
     address: str
     rooms: Optional[List['Auditory']]
 
-    _might_have_rooms: Optional[bool] = True
-
     async def get_auditories(self) -> List['Auditory']:
-        return await self.api.get_building_auditories(self.building_id)
+        if not self.rooms:
+            self.rooms = await self.api.get_building_auditories(self.id)
+        return self.rooms
 
 
 class Auditory(ObjectWithSchedule):
@@ -26,7 +25,7 @@ class Auditory(ObjectWithSchedule):
     name: str
     building: Building
 
-    async def get_schedule(self, date: Optional[Union[datetime.datetime, datetime.date]] = None):
+    async def get_schedule(self, date: Optional[AnyDate] = None):
         return await self.api.get_auditory_schedule(self.auditory_id, date)
 
 

@@ -30,9 +30,7 @@ class BaseScheduleApi(ContextInstanceMixin):
 
         self.set_current(self)
 
-    async def request(
-            self, method: Method,
-            on_api_error_exception: Optional[Type[Exception]] = exc.ApiResponseError) -> Optional[Union[dict, list]]:
+    async def request(self, method: Method, **params) -> Optional[Union[dict, list]]:
         """
         Base method to get response from API
 
@@ -41,7 +39,7 @@ class BaseScheduleApi(ContextInstanceMixin):
 
         :raises ApiError, NetworkError
         """
-        url = method.url
+        url = method.get_url(self.API_URL, params)
         log.debug('Make request: "%s"' % url)
 
         try:
@@ -62,10 +60,10 @@ class BaseScheduleApi(ContextInstanceMixin):
 
         if result_json.get('error', False):
             error_text = result_json.get("text", None)
-            expected_text = getattr(on_api_error_exception, 'expected_text', None)
+            expected_text = getattr(method.on_api_error, 'expected_text', None)
             error_message = f'Api returned error: {error_text}'
             if not expected_text or (error_text and expected_text in error_text):
-                raise on_api_error_exception(error_text, url=url, response=result_json)
+                raise method.on_api_error(error_text, url=url, response=result_json)
             elif error_text and exc.ApiInternalError.expected_text in error_text:
                 raise exc.ApiInternalError(error_message, url=url, response=result_json)
 

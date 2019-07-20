@@ -1,15 +1,12 @@
-import datetime
-from typing import Optional, Union
+from typing import Optional, List
 
-from pydantic import Schema
-
-from .base import StrScheduleObject
+from .base import StrScheduleObject, AnyDate
 
 __all__ = ['Teacher']
 
 
 class Teacher(StrScheduleObject):
-    teacher_id: int = Schema(None, alias='id')
+    id: int
     oid: int
     full_name: str
     first_name: str
@@ -18,5 +15,11 @@ class Teacher(StrScheduleObject):
     grade: str
     chair: str
 
-    async def get_schedule(self, date: Optional[Union[datetime.datetime, datetime.date]] = None):
-        return await self.api.get_teacher_schedule(self.teacher_id, date)
+    _str = 'full_name'
+
+    async def get_schedule(self, date: Optional[AnyDate] = None):
+        return await self.api.get_teacher_schedule(self.id, date)
+
+    @classmethod
+    async def search(cls, name: str) -> List['Teacher']:
+        return await cls.api.search_teacher(teacher_name=name)

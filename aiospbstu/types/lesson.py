@@ -35,6 +35,10 @@ class LessonType(IntEnum):
     exam = 7
     additional_exam = 8
 
+    @classmethod
+    def _missing_(cls, value):
+        return value
+
 
 class Lesson(StrScheduleObject):
     subject: str
@@ -48,3 +52,5 @@ class Lesson(StrScheduleObject):
     groups: List[Group]
     teachers: Optional[List[Teacher]]
     auditories: List[Auditory]
+
+    _str = 'subject_short'

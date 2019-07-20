@@ -1,13 +1,12 @@
-from enum import Enum
-
-from pydantic import Schema, validator
+from pydantic import validator
 
 from ..types.base import StrScheduleObject
+from ..utils.strenum import StrEnum
 
 __all__ = ['TypeObj', 'LessonTypeName']
 
 
-class LessonTypeName(str, Enum):
+class LessonTypeName(StrEnum):
     practical_lesson = 'Практика'
     laboratory_work = 'Лабораторная'
     lecture = 'Лекция'
@@ -20,23 +19,24 @@ class LessonTypeName(str, Enum):
     exam = 'Экзамен'
     additional_exam = 'Доп. экзамен'
 
-    # RUZ API returns names in the plural form
+    # RUZ API return some names in the plural form
     # TODO: Think about better solution
     api_laboratory_work = 'Лабораторные'
     api_lecture = 'Лекции'
     api_extracurricular_facility = 'Внеучебные занятия'
+    api_diff_credit = 'Дифференцированный зачет'
     api_consultation = 'Консультации'
     api_credit = 'Зачет'
 
 
 class TypeObj(StrScheduleObject):
-    type_id: int = Schema(None, alias='id')
+    id: int
     name: LessonTypeName
     abbr: str
 
     @validator('name')
     def _fix_name(cls, enum_field: LessonTypeName):
-        # RUZ API returns names in the plural form, fixing it
+        # RUZ API return some names in the plural form, fixing it
         if enum_field.name.startswith('api_'):
             return getattr(LessonTypeName, enum_field.name.replace('api_', ''))
         return enum_field

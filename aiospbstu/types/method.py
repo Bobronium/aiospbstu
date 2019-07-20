@@ -1,90 +1,96 @@
-import functools
 import re
-from typing import Union, List, Type, Optional
+from typing import Union, List, Optional, Dict, Tuple
+from urllib.parse import urlencode
 
-from pydantic import validator, create_model, Schema
+from pydantic import validator
 
-from .base import BaseScheduleObject
-from ..utils.string import snake_to_camel
+from .base import BaseScheduleObject, cached_property
+from ..utils.case import to_snake
 
-__all__ = ['Method', "MethodTemplate"]
+__all__ = ['Method', ]
 
 
 class Method(BaseScheduleObject):
-    name: str
-    endpoint: str
-    params: dict
-    expected_keys: Union[str, List[str], dict]
+    name: str = None
+    endpoint: str = None
+    endpoint_template: str = None
+    expected_keys: Union[str, Dict[str, str]] = {}
+    no_data_on_success: bool = False
+    url_params_allowed: bool = False
+    on_api_error: Optional[type]
 
-    use_base_site_url: bool = False
+    @cached_property
+    def needed_endpoint_params(self) -> List[str]:
+        if self.endpoint_template:
+            return re.findall(r'{(.*?)}', self.endpoint_template)
+        return []
 
-    def __str__(self):
-        return self.endpoint
+    def get_url(self, base_url: str, params: dict = None) -> str:
+        endpoint_params, url_params = self._filter_params(params)
+        endpoint = self._get_endpoint(endpoint_params)
 
-    @property
-    @functools.lru_cache()
-    def url(self):
-        if self.use_base_site_url:
-            return f'{self.api.BASE_URL}/{self.endpoint}'
-        return f'{self.api.API_URL}/{self.endpoint}'
+        url = base_url + endpoint
 
+        if url_params:
+            url += f'?{urlencode(params)}'
+        return url
 
-class MethodTemplate(BaseScheduleObject):
-    endpoint_template: str
-    expected_keys: Optional[Union[str, List[str], dict]] = Schema({})
+    def _get_endpoint(self, endpoint_params=None) -> str:
+        if self.endpoint:
+            return self.endpoint
+        elif not self.endpoint_template:
+            raise RuntimeError(f'Both self.endpoint and self.endpoint_template can not not be empty')
+        elif not self.needed_endpoint_params:
+            raise RuntimeError(f'Params to fill not found in endpoint_template: {self.endpoint_template}')
+        elif not endpoint_params:
+            raise ValueError(f'endpoint_params can not be empty on method {self.name}')
 
-    use_base_site_url: bool = False
+        return self.endpoint_template.format(**endpoint_params)
 
-    @property
-    @functools.lru_cache()
-    def name(self) -> str:
-        return self._name.upper()
-
-    @property
-    @functools.lru_cache()
-    def class_name(self) -> str:
-        return snake_to_camel(self._name)
-
-    @property
-    @functools.lru_cache()
-    def needed_params(self) -> List[str]:
-        return re.findall(r'{(.*?)}', self.endpoint_template)
-
-    @functools.lru_cache()
-    def get_method(self, **kwargs) -> Method:
-        for param in self.needed_params:
-            if param not in kwargs:
-                raise ValueError(f'Parameter "{param}" not found in "{kwargs}", needed params: {self.needed_params}')
-
-        for k, v in kwargs.items():
-            if k not in self.needed_params:
-                raise ValueError(f'Unexpected parameter: "{k}={v}", allowed params: {self.needed_params}')
-            elif v is None:
+    def _filter_params(self, params: dict) -> Tuple[dict, dict]:
+        params = params or {}
+        endpoint_params = {}
+        url_params = {}
+        for k, v in params.items():
+            if v is None:
                 raise ValueError(f'Parameter "{k}" is unfilled')
 
-        endpoint = self.endpoint_template.format(**kwargs)
-        # FIXME: Change pydantic.create_model rtype from BaseModel to Model TypeVar
-        # noinspection PyTypeChecker
-        method_class: Type[Method] = create_model(self.class_name, **self.expected_keys, **kwargs, __base__=Method)
+            if k in self.needed_endpoint_params:
+                endpoint_params[k] = v
+            elif self.url_params_allowed or not self.needed_endpoint_params:
+                url_params[k] = v
+            else:
+                raise ValueError(f'Unexpected parameter: "{k}={v}", allowed params: {self.needed_endpoint_params}')
 
-        return method_class(name=self.name,
-                            endpoint=endpoint,
-                            expected_keys=self.expected_keys,
-                            params=kwargs,
-                            use_base_site_url=self.use_base_site_url)
+        unfilled_param = next((param for param in self.needed_endpoint_params if param not in endpoint_params), None)
+        if unfilled_param is not None:
+            raise ValueError(f'Parameter "{unfilled_param}" not found in "{endpoint_params}",'
+                             f' needed params: {self.needed_endpoint_params}')
 
-    def __call__(self, **kwargs) -> Method:
-        # FIXME: pydantic have problems with functools.lru_cache, so self is needed here
-        # TODO: Figure out why this happens, create an issue on pydantic repo
-        return self.get_method(self, **kwargs)
+        return endpoint_params, url_params
 
     def __set_name__(self, owner, name):
-        self.__dict__.update(_name=name.lower())
+        try:
+            self.name = name
+        except Exception as e:
+            print(e)
 
-    @validator('expected_keys', whole=True)
+    def __str__(self):
+        return f'{self.name}: {self.endpoint or self.endpoint_template}'
+
+    def __getattr__(self, item):
+        try:
+            return BaseScheduleObject.__getattr__(self, item)
+        except AttributeError as e:
+            try:
+                return self.expected_keys[item]
+            except (KeyError, TypeError):
+                raise e
+
+    @validator('expected_keys', whole=True, pre=True)
     def _make_keys_dict(cls, keys) -> dict:
         if isinstance(keys, str):
-            return {f'{keys}_key': keys}
+            return {f'{to_snake(keys)}_key': keys}
         elif isinstance(keys, dict):
-            return keys
-        return {f'{k}_key': k for k in keys}
+            return to_snake(keys)
+        return {f'{to_snake(k)}_key': k for k in keys}

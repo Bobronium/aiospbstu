@@ -31,7 +31,7 @@ def handle_exceptions(func):
     return inner
 
 
-def error_handler(cls):
+def error_handler(cls: type) -> type:
     for coroutine in (obj for obj in cls.__dict__.values() if inspect.iscoroutinefunction(obj)):
         setattr(cls, coroutine.__name__, handle_exceptions(coroutine))
 
