@@ -28,7 +28,7 @@ setup(
     packages=['aiospbstu', 'aiospbstu.types', 'aiospbstu.utils'],
     package_data={},
     install_requires=[
-        'aiohttp==3.5.4', 'async-timeout==3.0.1', 'attrs==19.1.0',
+        'aiohttp==3.7.4', 'async-timeout==3.0.1', 'attrs==19.1.0',
         'certifi==2019.3.9', 'chardet==3.0.4', 'idna==2.8', 'multidict==4.5.2',
         'pydantic==0.30', 'yarl==1.3.0'
     ],
